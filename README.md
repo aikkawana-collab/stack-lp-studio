@@ -25,7 +25,7 @@ Codex内蔵の画像生成を使い、画像主体のランディングページ
 ## セットアップ
 
 ```bash
-git clone <このリポジトリのURL>
+git clone https://github.com/aikkawana-collab/stack-lp-studio.git
 cd stack-lp-studio
 npm run check
 npm start
