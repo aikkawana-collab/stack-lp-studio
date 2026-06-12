@@ -1,0 +1,21 @@
+# User projects and generated deliverables
+projects/*
+!projects/.gitkeep
+exports/
+images/generated/
+
+# Local previews and OS files
+stack-lp-studio-preview*.png
+.DS_Store
+Thumbs.db
+
+# Logs and local environment
+*.log
+.env
+.env.*
+!.env.example
+node_modules/
+
+# Never commit Codex authentication caches
+auth.json
+.codex/

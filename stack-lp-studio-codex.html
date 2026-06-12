@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STACK LP Studio - Image-first LP Builder</title>
+<meta name="description" content="画像を縦に積み、A/Bテスト案を作り、計測タグ付きHTMLとして書き出せるモバイルLP制作プロトタイプ。">
+<style>
+:root {
+  --bg: #f4f2ec;
+  --panel: #ffffff;
+  --ink: #151515;
+  --muted: #77756e;
+  --line: #ddd9cf;
+  --blue: #3155e7;
+  --blue-dark: #1e3dbc;
+  --coral: #ff6b56;
+  --green: #1b8b62;
+  --shadow: 0 16px 50px rgba(31, 34, 48, .10);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  color: var(--ink);
+  background: var(--bg);
+  font-family: Inter, "Noto Sans JP", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+button, input, textarea { font: inherit; }
+button { cursor: pointer; }
+.app { min-height: 100vh; }
+.topbar {
+  height: 68px;
+  padding: 0 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  color: white;
+  background: #151515;
+  border-bottom: 1px solid #2e2e2e;
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand__mark {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  color: var(--ink);
+  background: var(--coral);
+  border-radius: 9px;
+}
+.brand strong { letter-spacing: -.03em; }
+.brand small { display: block; color: #aaa; font-size: 10px; letter-spacing: .12em; }
+.top-actions { display: flex; align-items: center; gap: 8px; }
+.project-switcher { position: relative; }
+.project-switcher__trigger {
+  min-height: 38px;
+  max-width: 250px;
+  padding: 6px 9px 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: white;
+  background: #252525;
+  border: 1px solid #444;
+  border-radius: 9px;
+}
+.project-switcher__text {
+  min-width: 0;
+  display: grid;
+  text-align: left;
+  line-height: 1.1;
+}
+.project-switcher__text small { color: #999; font-size: 9px; }
+.project-switcher__text strong {
+  overflow: hidden;
+  max-width: 175px;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-switcher__dots {
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: 1px;
+  transform: translateY(-3px);
+}
+.project-menu {
+  width: min(340px, calc(100vw - 24px));
+  padding: 14px;
+  display: none;
+  position: absolute;
+  top: calc(100% + 9px);
+  right: 0;
+  z-index: 40;
+  color: var(--ink);
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .24);
+}
+.project-menu.is-open { display: block; }
+.project-menu__head { margin-bottom: 10px; }
+.project-menu__head strong { display: block; font-size: 13px; }
+.project-menu__head small { color: var(--muted); font-size: 10px; }
+.project-menu__actions { display: grid; grid-template-columns: 1fr auto; gap: 7px; }
+.project-menu__new { width: 100%; margin-top: 8px; }
+.project-menu .notice { margin-top: 10px; }
+.btn {
+  min-height: 38px;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--ink);
+  background: white;
+  font-weight: 750;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn--dark { color: white; background: #252525; border-color: #444; }
+.btn--primary { color: white; background: var(--blue); border-color: var(--blue); }
+.btn--primary:hover { background: var(--blue-dark); }
+.btn--danger { color: #c63e32; background: #fff4f1; border-color: #ffd1ca; }
+.btn--small { min-height: 32px; padding: 6px 10px; font-size: 12px; }
+.layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(620px, 2fr);
+  min-height: calc(100vh - 68px);
+}
+.sidebar {
+  height: calc(100vh - 68px);
+  padding: 20px;
+  position: sticky;
+  top: 68px;
+  background: #f9f8f4;
+  border-left: 1px solid var(--line);
+  overflow: auto;
+}
+.sidebar--right { border-right: 0; }
+.panel {
+  padding: 16px;
+  margin-bottom: 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.panel h2, .panel h3 { margin: 0 0 6px; font-size: 14px; }
+.panel p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.65; }
+.label {
+  display: block;
+  margin: 13px 0 6px;
+  color: #595751;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+.field {
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--ink);
+  background: #fff;
+  outline: none;
+}
+.field:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(49, 85, 231, .10); }
+textarea.field { min-height: 82px; resize: vertical; line-height: 1.55; }
+.dropzone {
+  padding: 20px 12px;
+  text-align: center;
+  border: 1.5px dashed #b8b4aa;
+  border-radius: 12px;
+  background: #fbfaf7;
+  transition: .2s;
+}
+.dropzone.is-over { border-color: var(--blue); background: #eef1ff; }
+.dropzone input { display: none; }
+.dropzone strong { display: block; margin-bottom: 4px; font-size: 13px; }
+.dropzone span { color: var(--muted); font-size: 11px; }
+.library-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.role-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 12px -2px 0;
+  padding: 2px 2px 7px;
+  overflow-x: auto;
+}
+.role-tab {
+  flex: none;
+  padding: 7px 10px;
+  color: #66625a;
+  background: #f5f3ed;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+.role-tab.is-active { color: white; background: var(--ink); border-color: var(--ink); }
+.role-tab span { margin-left: 3px; opacity: .68; }
+.role-tag {
+  display: inline-block;
+  margin-bottom: 5px;
+  color: var(--blue);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .04em;
+}
+.ai-compose {
+  padding: 14px;
+  margin-bottom: 14px;
+  color: white;
+  background: var(--ink);
+  border-radius: 13px;
+}
+.ai-compose h2 { margin: 0 0 4px; font-size: 14px; }
+.ai-compose p { margin: 0; color: #bbb; font-size: 11px; line-height: 1.6; }
+.ai-compose__actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 11px; }
+.ai-compose .btn--primary { min-height: 42px; }
+.select {
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--ink);
+  background: white;
+}
+.prompt-grid { display: grid; grid-template-columns: 1fr 110px; gap: 8px; margin-top: 10px; }
+.generation-controls { display: grid; gap: 8px; margin-top: 10px; }
+.generation-controls .label { margin: 2px 0 -3px; }
+.generation-tools { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 10px; }
+.project-loader { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.count-badge {
+  flex: none;
+  padding: 4px 8px;
+  color: var(--blue);
+  background: #eef1ff;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+}
+.asset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 13px;
+}
+.asset-card {
+  overflow: hidden;
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: white;
+}
+.asset-card.is-selected { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(49, 85, 231, .12); }
+.asset-card__image {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+  background: #eee;
+  cursor: zoom-in;
+}
+.asset-card__body { padding: 8px; }
+.asset-card strong {
+  display: block;
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asset-card__add {
+  width: 100%;
+  min-height: 29px;
+  margin-top: 7px;
+  padding: 5px 7px;
+  color: white;
+  background: var(--blue);
+  border: 0;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 850;
+}
+.asset-card__add:hover { background: var(--blue-dark); }
+.asset-card__used {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  padding: 4px 7px;
+  color: white;
+  background: rgba(21, 21, 21, .82);
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 850;
+}
+.section-list { display: grid; gap: 9px; margin-top: 13px; }
+.section-card {
+  display: grid;
+  grid-template-columns: 22px 68px 1fr;
+  gap: 9px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+.section-card.is-dragging { opacity: .42; }
+.section-card__handle { color: #aaa69c; font-size: 18px; user-select: none; }
+.section-card img { width: 68px; height: 74px; object-fit: cover; object-position: top; border-radius: 7px; background: #eee; }
+.section-card strong { display: block; overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.section-card small { color: var(--muted); font-size: 10px; }
+.card-actions { display: flex; gap: 5px; margin-top: 6px; }
+.icon-btn {
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: #65625c;
+  background: #faf9f6;
+}
+.workspace {
+  min-width: 0;
+  padding: 22px 14px 60px;
+  overflow: auto;
+  background:
+    linear-gradient(90deg, rgba(21,21,21,.035) 1px, transparent 1px),
+    linear-gradient(rgba(21,21,21,.035) 1px, transparent 1px),
+    #e9e7e0;
+  background-size: 24px 24px;
+}
+.workspace-head {
+  max-width: 300px;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.workspace-head h1 { margin: 0; font-size: 15px; }
+.status { display: flex; align-items: center; gap: 6px; color: var(--green); font-size: 11px; font-weight: 800; }
+.status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.phone {
+  width: min(300px, 92%);
+  min-height: 520px;
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid #cfcbc0;
+  border-radius: 16px;
+  background: white;
+  box-shadow: var(--shadow);
+}
+.phone__bar {
+  height: 32px;
+  position: relative;
+  background: #f5f3ed;
+  border-bottom: 1px solid var(--line);
+}
+.phone__bar::after {
+  content: "公開ページ全体";
+  width: auto;
+  height: auto;
+  position: absolute;
+  top: 8px;
+  left: 14px;
+  color: #77736b;
+  background: transparent;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .06em;
+}
+.preview-empty { padding: 120px 30px; text-align: center; color: var(--muted); }
+.preview-stack img { display: block; width: 100%; height: auto; }
+.preview-stack a { display: block; position: relative; }
+.preview-stack a:hover::after {
+  content: "選択中";
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 5px 8px;
+  color: white;
+  background: rgba(21, 21, 21, .78);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+}
+.lightbox {
+  padding: 22px;
+  display: none;
+  place-items: center;
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(12, 12, 14, .82);
+  backdrop-filter: blur(8px);
+}
+.lightbox.is-open { display: grid; }
+.lightbox img {
+  max-width: min(560px, 90vw);
+  max-height: 86vh;
+  border-radius: 14px;
+  box-shadow: 0 24px 80px rgba(0,0,0,.4);
+}
+.lightbox button {
+  width: 38px;
+  height: 38px;
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  color: white;
+  background: #222;
+  border: 1px solid #666;
+  border-radius: 50%;
+  font-size: 22px;
+}
+.variant-tabs { display: flex; gap: 6px; margin-top: 12px; }
+.editor-guide {
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  color: #3444a0;
+  background: #eef1ff;
+  border: 1px solid #d8dfff;
+  border-radius: 11px;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.editor-guide strong { display: block; margin-bottom: 2px; color: var(--blue-dark); font-size: 12px; }
+.tool-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 10px; }
+.settings {
+  margin-bottom: 14px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.settings summary {
+  padding: 14px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 850;
+  list-style: none;
+}
+.settings summary::-webkit-details-marker { display: none; }
+.settings summary::after { content: "＋"; float: right; color: var(--muted); }
+.settings[open] summary::after { content: "−"; }
+.settings__body { padding: 0 16px 16px; border-top: 1px solid var(--line); }
+.variant-tab {
+  flex: 1;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  font-weight: 800;
+}
+.variant-tab.is-active { color: white; background: var(--blue); border-color: var(--blue); }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.metric { padding: 11px; border-radius: 10px; background: #f5f4ef; }
+.metric span { display: block; color: var(--muted); font-size: 10px; }
+.metric strong { font-size: 19px; letter-spacing: -.04em; }
+.bar { height: 8px; overflow: hidden; margin-top: 10px; border-radius: 999px; background: #e9e6dd; }
+.bar i { display: block; width: 50%; height: 100%; background: var(--blue); }
+.notice {
+  padding: 11px;
+  margin-top: 12px;
+  color: #5c573d;
+  background: #fff9da;
+  border: 1px solid #eee29b;
+  border-radius: 9px;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 50;
+  padding: 11px 16px;
+  color: white;
+  background: #161616;
+  border-radius: 9px;
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  transform: translate(-50%, 120px);
+  transition: .25s;
+}
+.toast.is-show { transform: translate(-50%, 0); }
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: minmax(260px, 1fr) minmax(540px, 2fr); }
+  .workspace { padding: 18px 10px 50px; }
+  .workspace-head { max-width: 280px; }
+  .phone { width: min(280px, 92%); }
+  .sidebar { padding: 12px; }
+  .asset-grid { grid-template-columns: repeat(3, 1fr); }
+  .panel { padding: 12px; }
+  .section-card { grid-template-columns: 18px 52px 1fr; gap: 7px; }
+  .section-card img { width: 52px; height: 58px; }
+  .brand small { display: none; }
+}
+@media (max-width: 820px) {
+  .topbar { padding: 0 12px; }
+  .brand small, .top-actions .btn--dark { display: none; }
+  .project-switcher__text { display: none; }
+  .project-switcher__trigger { width: 38px; padding: 0; justify-content: center; }
+  .layout { display: block; }
+  .workspace { min-height: 760px; padding: 18px 10px 44px; }
+  .sidebar { height: auto; position: static; border-top: 1px solid var(--line); border-left: 0; }
+  .asset-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand__mark">S</div>
+      <div><strong>STACK LP Studio</strong><small>IMAGE-FIRST MOBILE LP BUILDER</small></div>
+    </div>
+    <div class="top-actions">
+      <button class="btn btn--dark" id="saveProject">プロジェクト保存</button>
+      <button class="btn btn--primary" id="exportHtml">HTMLを書き出す</button>
+      <div class="project-switcher">
+        <button class="project-switcher__trigger" id="projectMenuTrigger" aria-haspopup="true" aria-expanded="false" aria-label="プロジェクトメニューを開く">
+          <span class="project-switcher__text">
+            <small>PROJECT</small>
+            <strong id="currentProjectName">STACK LP デモ</strong>
+          </span>
+          <span class="project-switcher__dots" aria-hidden="true">...</span>
+        </button>
+        <div class="project-menu" id="projectMenu">
+          <div class="project-menu__head">
+            <strong>プロジェクトを切り替える</strong>
+            <small>ペルソナごとの作業フォルダを選択します。</small>
+          </div>
+          <div class="project-menu__actions">
+            <select class="select" id="savedProject">
+              <option value="">保存済みプロジェクトを選択</option>
+            </select>
+            <button class="btn btn--small" id="loadProject">読み込む</button>
+          </div>
+          <button class="btn btn--small project-menu__new" id="newProject">＋ 新規プロジェクトを作成</button>
+          <div class="notice" id="projectFolderNotice">保存するとペルソナ専用フォルダが作成されます。</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="workspace">
+      <div class="workspace-head">
+        <h1 id="previewTitle">LP全体プレビュー / Variant A</h1>
+        <div class="status">自動保存中</div>
+      </div>
+      <div class="phone">
+        <div class="phone__bar"></div>
+        <div class="preview-stack" id="previewStack"></div>
+      </div>
+    </section>
+
+    <aside class="sidebar sidebar--right">
+      <div class="editor-guide">
+        <strong>右で選び、左で全体を確認</strong>
+        LP構造ごとに候補を生成し、各パートから1案ずつ選んで7セクションのLPを作ります。
+      </div>
+
+      <section class="ai-compose">
+        <h2>AIでLPを自動構成</h2>
+        <p>7つの構造から候補を1枚ずつ選び、基本順序でLPを組み立てます。</p>
+        <div class="ai-compose__actions">
+          <button class="btn btn--primary" id="autoCompose">AIおすすめで構成する</button>
+          <button class="btn btn--dark btn--small" id="shuffleCompose">別案</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="library-head">
+          <div>
+            <h2>構造別の生成画像</h2>
+            <p>パートを選び、2〜3案から採用画像を決めます。</p>
+          </div>
+          <span class="count-badge" id="libraryCount">0 IMAGES</span>
+        </div>
+        <div class="role-tabs" id="roleTabs"></div>
+        <div class="generation-tools">
+          <button class="btn btn--primary" id="regenerateActiveRole">選択中のパートを再生成</button>
+          <button class="btn btn--small" id="syncGenerated">フォルダを同期</button>
+        </div>
+        <div class="asset-grid" id="assetGrid"></div>
+        <label class="dropzone" id="dropzone" style="margin-top:12px;display:block;">
+          <input type="file" id="fileInput" accept="image/*" multiple>
+          <strong>生成した画像を追加</strong>
+          <span>Codexで生成後、クリックまたはドロップ / 複数選択可</span>
+        </label>
+      </section>
+
+      <section class="panel">
+        <div class="library-head">
+          <div>
+            <h2>LPの構成</h2>
+            <p>採用画像の順序、複製、削除を編集します。</p>
+          </div>
+          <span class="count-badge" id="selectedCount">0 SECTIONS</span>
+        </div>
+        <div class="section-list" id="sectionList"></div>
+      </section>
+
+      <section class="panel">
+        <h2>画像を再生成</h2>
+        <p>構造と生成枚数を指定して、画像を再生成します。</p>
+        <div class="prompt-grid">
+          <select class="select" id="promptRole"></select>
+          <select class="select" id="promptCount">
+            <option value="2">2案生成</option>
+            <option value="3" selected>3案生成</option>
+          </select>
+        </div>
+        <div class="generation-controls">
+          <label class="label" for="styleReference">基準画像</label>
+          <select class="select" id="styleReference">
+            <option value="auto">選択パートに対応する既存画像</option>
+            <option value="images/stack-lp/01-hero.png">01 ヒーロー</option>
+            <option value="images/stack-lp/02-flow.png">02 フロー</option>
+            <option value="images/stack-lp/03-cta.png">03 CTA</option>
+            <option value="images/stack-lp/04-problem.png">04 課題提起</option>
+            <option value="images/stack-lp/05-benefits.png">05 メリット</option>
+            <option value="images/stack-lp/06-proof.png">06 実績・声</option>
+            <option value="none">基準画像なし（文章指定のみ）</option>
+          </select>
+          <label class="label" for="styleGuide">画風ルール</label>
+          <textarea class="field" id="styleGuide">既存LPと同じ、明るいクリーム色を基調にした親しみやすいフラットイラスト。濃紺の輪郭線、青・黄・コーラルの限定色、丸みのある人物と図形、紙面広告のような整理された文字組み。写真風、写実表現、3D、暗い背景、ネオン調は使わない。</textarea>
+        </div>
+        <textarea class="field" id="prompt" hidden></textarea>
+        <button class="btn btn--primary" id="regeneratePrompt" style="margin-top:8px;width:100%;">再生成</button>
+        <div class="notice" id="generationStatus">Codex内蔵画像生成を使い、生成結果を候補一覧へ自動追加します。</div>
+      </section>
+
+      <details class="settings">
+        <summary>プロジェクト・A/Bテスト・計測設定</summary>
+        <div class="settings__body">
+          <label class="label" for="projectName">LP名</label>
+          <input class="field" id="projectName" value="STACK LP デモ">
+          <label class="label" for="personaName">ペルソナ名</label>
+          <input class="field" id="personaName" value="デモペルソナ" placeholder="例：副業を始めたい30代会社員">
+          <label class="label" for="pageTitle">公開ページタイトル</label>
+          <input class="field" id="pageTitle" value="STACK LP - 画像でつくる高速LP">
+          <label class="label" for="ctaUrl">画像クリック時のリンク</label>
+          <input class="field" id="ctaUrl" type="url" value="https://example.com/apply">
+          <label class="label">A/Bテスト</label>
+          <div class="variant-tabs">
+            <button class="variant-tab is-active" data-variant="A">Variant A</button>
+            <button class="variant-tab" data-variant="B">Variant B</button>
+          </div>
+          <button class="btn btn--small" id="cloneVariant" style="width:100%;margin-top:8px;">現在案をもう一方へ複製</button>
+          <label class="label" for="splitRange">Aへの配信比率 <span id="splitValue">50%</span></label>
+          <input id="splitRange" type="range" min="10" max="90" value="50" style="width:100%;">
+          <div class="bar"><i id="splitBar"></i></div>
+          <label class="label" for="gtmId">Google Tag Manager ID</label>
+          <input class="field" id="gtmId" placeholder="GTM-XXXXXXX">
+          <label class="label" for="eventName">CTAイベント名</label>
+          <input class="field" id="eventName" value="lp_cta_click">
+          <div class="notice">A/Bの数値取得と直接デプロイは次段階で接続します。</div>
+        </div>
+      </details>
+      <button id="deployReady" hidden></button>
+    </aside>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+<div class="lightbox" id="lightbox" aria-hidden="true">
+  <button id="closeLightbox" aria-label="閉じる">×</button>
+  <img id="lightboxImage" alt="生成画像の拡大プレビュー">
+</div>
+
+<script>
+(() => {
+  const IMAGE_GENERATION = Object.freeze({
+    orientation: "landscape",
+    aspectRatio: "3:2",
+    width: 1536,
+    height: 1024,
+    apiSize: "1536x1024"
+  });
+  const roles = [
+    { id: "hero", label: "ヒーロー", purpose: "一瞬で商品価値を伝え、続きを読みたくさせるファーストビュー" },
+    { id: "problem", label: "課題提起", purpose: "対象ユーザーが抱える悩みを言語化し、自分ごと化させる" },
+    { id: "solution", label: "解決策", purpose: "商品が悩みをどのような仕組みで解決するかを示す" },
+    { id: "benefits", label: "メリット", purpose: "利用後に得られる具体的な変化を3点前後で示す" },
+    { id: "howto", label: "利用方法", purpose: "利用開始から成果までの流れを簡潔なステップで示す" },
+    { id: "proof", label: "実績・声", purpose: "数値、事例、利用者の声によって信頼性を高める" },
+    { id: "cta", label: "CTA", purpose: "不安を減らし、次の行動を明確に促すクロージング" }
+  ];
+  const roleReferences = {
+    hero: "images/stack-lp/01-hero.png",
+    problem: "images/stack-lp/04-problem.png",
+    solution: "images/stack-lp/02-flow.png",
+    benefits: "images/stack-lp/05-benefits.png",
+    howto: "images/stack-lp/02-flow.png",
+    proof: "images/stack-lp/06-proof.png",
+    cta: "images/stack-lp/03-cta.png"
+  };
+  const librarySeed = [
+    { assetId: "hero-a", role: "hero", score: 96, name: "Hero A / ベネフィット訴求", src: "images/stack-lp/01-hero.png" },
+    { assetId: "hero-b", role: "hero", score: 88, name: "Hero B / スピード訴求", src: "images/stack-lp/05-benefits.png" },
+    { assetId: "problem-a", role: "problem", score: 95, name: "Problem A / 制作の分断", src: "images/stack-lp/04-problem.png" },
+    { assetId: "problem-b", role: "problem", score: 84, name: "Problem B / 改善の遅さ", src: "images/stack-lp/06-proof.png" },
+    { assetId: "solution-a", role: "solution", score: 94, name: "Solution A / 一元化", src: "images/stack-lp/02-flow.png" },
+    { assetId: "solution-b", role: "solution", score: 86, name: "Solution B / モジュール方式", src: "images/stack-lp/01-hero.png" },
+    { assetId: "benefits-a", role: "benefits", score: 97, name: "Benefits A / 3メリット", src: "images/stack-lp/05-benefits.png" },
+    { assetId: "benefits-b", role: "benefits", score: 82, name: "Benefits B / 成果訴求", src: "images/stack-lp/01-hero.png" },
+    { assetId: "howto-a", role: "howto", score: 96, name: "Howto A / 3ステップ", src: "images/stack-lp/02-flow.png" },
+    { assetId: "howto-b", role: "howto", score: 85, name: "Howto B / 生成から公開", src: "images/stack-lp/05-benefits.png" },
+    { assetId: "proof-a", role: "proof", score: 95, name: "Proof A / 利用者の声", src: "images/stack-lp/06-proof.png" },
+    { assetId: "proof-b", role: "proof", score: 83, name: "Proof B / 数値実績", src: "images/stack-lp/01-hero.png" },
+    { assetId: "cta-a", role: "cta", score: 98, name: "CTA A / 今すぐ開始", src: "images/stack-lp/03-cta.png" },
+    { assetId: "cta-b", role: "cta", score: 87, name: "CTA B / 無料で試す", src: "images/stack-lp/05-benefits.png" }
+  ];
+  const initial = roles.map(role => {
+    const asset = librarySeed.filter(item => item.role === role.id).sort((a, b) => b.score - a.score)[0];
+    return { ...asset, id: crypto.randomUUID() };
+  });
+  const state = {
+    projectId: "",
+    active: "A",
+    activeRole: "hero",
+    library: librarySeed,
+    variants: { A: initial, B: initial.map(item => ({ ...item, id: crypto.randomUUID() })) },
+    draggingId: null
+  };
+  const $ = selector => document.querySelector(selector);
+  const $$ = selector => [...document.querySelectorAll(selector)];
+  const list = $("#sectionList");
+  const assetGrid = $("#assetGrid");
+  const roleTabs = $("#roleTabs");
+  const preview = $("#previewStack");
+  const toast = $("#toast");
+  const projectMenu = $("#projectMenu");
+  const projectMenuTrigger = $("#projectMenuTrigger");
+
+  function notify(message) {
+    toast.textContent = message;
+    toast.classList.add("is-show");
+    clearTimeout(notify.timer);
+    notify.timer = setTimeout(() => toast.classList.remove("is-show"), 2200);
+  }
+
+  function setProjectMenu(open) {
+    projectMenu.classList.toggle("is-open", open);
+    projectMenuTrigger.setAttribute("aria-expanded", String(open));
+  }
+
+  function currentItems() {
+    return state.variants[state.active];
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, char => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+    })[char]);
+  }
+
+  function render() {
+    const items = currentItems();
+    $("#previewTitle").textContent = `LP全体プレビュー / Variant ${state.active}`;
+    const visibleAssets = state.library.filter(asset => asset.role === state.activeRole);
+    $("#libraryCount").textContent = `${visibleAssets.length} VARIANTS`;
+    $("#selectedCount").textContent = `${items.length} SECTIONS`;
+    roleTabs.innerHTML = roles.map(role => {
+      const count = state.library.filter(asset => asset.role === role.id).length;
+      return `<button class="role-tab${role.id === state.activeRole ? " is-active" : ""}" data-role="${role.id}">${role.label}<span>${count}</span></button>`;
+    }).join("");
+    assetGrid.innerHTML = visibleAssets.map(asset => {
+      const used = items.filter(item => item.assetId === asset.assetId).length;
+      const role = roles.find(item => item.id === asset.role);
+      return `
+        <article class="asset-card${used ? " is-selected" : ""}" data-asset-id="${asset.assetId}">
+          ${used ? `<span class="asset-card__used">採用 ${used}</span>` : ""}
+          <img class="asset-card__image" src="${asset.src}" alt="${escapeHtml(asset.name)}" data-preview="${asset.assetId}">
+          <div class="asset-card__body">
+            <span class="role-tag">${escapeHtml(role.label)}</span>
+            <strong>${escapeHtml(asset.name)}</strong>
+            <button class="asset-card__add" data-add="${asset.assetId}">この案を採用</button>
+          </div>
+        </article>
+      `;
+    }).join("");
+    list.innerHTML = items.map((item, index) => `
+      <article class="section-card" draggable="true" data-id="${item.id}">
+        <div class="section-card__handle" title="ドラッグして並べ替え">⋮⋮</div>
+        <img src="${item.src}" alt="">
+        <div>
+          <strong>${escapeHtml(item.name)}</strong>
+          <small>SECTION ${String(index + 1).padStart(2, "0")}</small>
+          <div class="card-actions">
+            <button class="icon-btn" data-action="up" title="上へ">↑</button>
+            <button class="icon-btn" data-action="down" title="下へ">↓</button>
+            <button class="icon-btn" data-action="duplicate" title="複製">＋</button>
+            <button class="icon-btn" data-action="delete" title="削除">×</button>
+          </div>
+        </div>
+      </article>
+    `).join("");
+    preview.innerHTML = items.length
+      ? items.map(item => `<a href="${escapeHtml($("#ctaUrl").value || "#")}" target="_blank" rel="noopener"><img src="${item.src}" alt="${escapeHtml(item.name)}"></a>`).join("")
+      : '<div class="preview-empty">右の生成画像から「LPに追加」を押してください。</div>';
+    bindAssets();
+    bindRoleTabs();
+    bindCards();
+    persist();
+  }
+
+  function bindRoleTabs() {
+    $$(".role-tab").forEach(button => button.addEventListener("click", () => {
+      state.activeRole = button.dataset.role;
+      $("#promptRole").value = state.activeRole;
+      updatePrompt();
+      render();
+    }));
+  }
+
+  function bindAssets() {
+    $$(".asset-card__add").forEach(button => button.addEventListener("click", () => {
+      const asset = state.library.find(item => item.assetId === button.dataset.add);
+      if (!asset) return;
+      const roleIndex = roles.findIndex(role => role.id === asset.role);
+      const existingIndex = currentItems().findIndex(item => item.role === asset.role);
+      const selected = { ...asset, id: crypto.randomUUID() };
+      if (existingIndex >= 0) currentItems().splice(existingIndex, 1, selected);
+      else {
+        const insertAt = currentItems().findIndex(item => roles.findIndex(role => role.id === item.role) > roleIndex);
+        currentItems().splice(insertAt < 0 ? currentItems().length : insertAt, 0, selected);
+      }
+      render();
+      notify(`${asset.name} を採用しました`);
+    }));
+    $$(".asset-card__image").forEach(image => image.addEventListener("click", () => {
+      const asset = state.library.find(item => item.assetId === image.dataset.preview);
+      if (!asset) return;
+      $("#lightboxImage").src = asset.src;
+      $("#lightbox").classList.add("is-open");
+      $("#lightbox").setAttribute("aria-hidden", "false");
+    }));
+  }
+
+  function bindCards() {
+    $$(".section-card").forEach(card => {
+      card.addEventListener("dragstart", () => {
+        state.draggingId = card.dataset.id;
+        card.classList.add("is-dragging");
+      });
+      card.addEventListener("dragend", () => {
+        state.draggingId = null;
+        card.classList.remove("is-dragging");
+      });
+      card.addEventListener("dragover", event => event.preventDefault());
+      card.addEventListener("drop", event => {
+        event.preventDefault();
+        const targetId = card.dataset.id;
+        if (!state.draggingId || state.draggingId === targetId) return;
+        const items = currentItems();
+        const from = items.findIndex(item => item.id === state.draggingId);
+        const to = items.findIndex(item => item.id === targetId);
+        const [moved] = items.splice(from, 1);
+        items.splice(to, 0, moved);
+        render();
+      });
+      card.addEventListener("click", event => {
+        const action = event.target.dataset.action;
+        if (!action) return;
+        mutateItem(card.dataset.id, action);
+      });
+    });
+  }
+
+  function mutateItem(id, action) {
+    const items = currentItems();
+    const index = items.findIndex(item => item.id === id);
+    if (index < 0) return;
+    if (action === "up" && index > 0) [items[index - 1], items[index]] = [items[index], items[index - 1]];
+    if (action === "down" && index < items.length - 1) [items[index + 1], items[index]] = [items[index], items[index + 1]];
+    if (action === "duplicate") items.splice(index + 1, 0, { ...items[index], id: crypto.randomUUID(), name: `${items[index].name} copy` });
+    if (action === "delete") items.splice(index, 1);
+    render();
+  }
+
+  function addFiles(files) {
+    [...files].filter(file => file.type.startsWith("image/")).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const image = new Image();
+        image.onload = () => {
+          if (image.naturalWidth <= image.naturalHeight) {
+            notify(`${file.name} は横長画像ではないため追加できません`);
+            return;
+          }
+          state.library.unshift({
+            assetId: crypto.randomUUID(),
+            role: state.activeRole,
+            score: 80,
+            name: file.name.replace(/\.[^.]+$/, ""),
+            src: reader.result
+          });
+          render();
+          notify(`${file.name} を画像ライブラリに追加しました`);
+        };
+        image.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function persist() {
+    const project = projectData();
+    try { localStorage.setItem("stack-lp-project-v3", JSON.stringify(project)); }
+    catch (_) { /* Large uploaded images can exceed browser storage; server save still works. */ }
+  }
+
+  function projectData() {
+    return {
+      active: state.active,
+      library: state.library,
+      variants: state.variants,
+      projectName: $("#projectName").value,
+      projectId: state.projectId,
+      personaName: $("#personaName").value,
+      pageTitle: $("#pageTitle").value,
+      ctaUrl: $("#ctaUrl").value,
+      gtmId: $("#gtmId").value,
+      eventName: $("#eventName").value,
+      split: $("#splitRange").value,
+      styleReference: $("#styleReference").value,
+      styleGuide: $("#styleGuide").value
+    };
+  }
+
+  function restore() {
+    try {
+      const saved = JSON.parse(localStorage.getItem("stack-lp-project-v3"));
+      if (!saved || !saved.variants) return;
+      state.active = saved.active || "A";
+      state.library = saved.library || librarySeed;
+      state.variants = saved.variants;
+      state.projectId = saved.projectId || "";
+      ["projectName", "personaName", "pageTitle", "ctaUrl", "gtmId", "eventName", "styleReference", "styleGuide"].forEach(key => {
+        if (saved[key] != null) $(`#${key}`).value = saved[key];
+      });
+      if (saved.split) $("#splitRange").value = saved.split;
+    } catch (_) {}
+  }
+
+  function applyProject(saved) {
+    if (!saved || !saved.variants) throw new Error("プロジェクトデータが正しくありません");
+    state.active = saved.active || "A";
+    state.projectId = saved.projectId || "";
+    state.library = saved.library || librarySeed;
+    state.variants = saved.variants;
+    ["projectName", "personaName", "pageTitle", "ctaUrl", "gtmId", "eventName", "styleReference", "styleGuide"].forEach(key => {
+      if (saved[key] != null) $(`#${key}`).value = saved[key];
+    });
+    if (saved.split) $("#splitRange").value = saved.split;
+    $("#splitValue").textContent = `${$("#splitRange").value}%`;
+    $("#splitBar").style.width = `${$("#splitRange").value}%`;
+    $$(".variant-tab").forEach(item => item.classList.toggle("is-active", item.dataset.variant === state.active));
+    persist();
+    render();
+    updateProjectFolderNotice();
+  }
+
+  async function refreshProjectList() {
+    try {
+      const response = await fetch("/api/projects", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "プロジェクト一覧を取得できませんでした");
+      const selected = $("#savedProject").value;
+      $("#savedProject").innerHTML = [
+        '<option value="">保存済みプロジェクトを選択</option>',
+        ...result.projects.map(project =>
+          `<option value="${escapeHtml(project.projectId)}" data-legacy="${escapeHtml(project.legacyFilename || "")}">${escapeHtml(project.projectName)}${project.personaName ? ` / ${escapeHtml(project.personaName)}` : ""}</option>`
+        )
+      ].join("");
+      if (result.projects.some(project => project.projectId === selected)) $("#savedProject").value = selected;
+    } catch (error) {
+      notify(error.message);
+    }
+  }
+
+  async function loadProjectFromDisk() {
+    const projectId = $("#savedProject").value;
+    if (!projectId) {
+      notify("読み込むプロジェクトを選択してください");
+      return;
+    }
+    try {
+      const option = $("#savedProject").selectedOptions[0];
+      const legacyFilename = option?.dataset.legacy || "";
+      const query = legacyFilename
+        ? `legacyFilename=${encodeURIComponent(legacyFilename)}`
+        : `projectId=${encodeURIComponent(projectId)}`;
+      const response = await fetch(`/api/project/load?${query}`, { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "プロジェクトを読み込めませんでした");
+      applyProject(result.project);
+      setProjectMenu(false);
+      notify(`${result.project.projectName || projectId} を読み込みました`);
+    } catch (error) {
+      notify(error.message);
+    }
+  }
+
+  function buildGtm(id) {
+    if (!/^GTM-[A-Z0-9]+$/i.test(id.trim())) return { head: "", body: "" };
+    const clean = id.trim().toUpperCase();
+    return {
+      head: `<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${clean}');<\\/script>`,
+      body: `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${clean}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>`
+    };
+  }
+
+  function buildHtml() {
+    const title = escapeHtml($("#pageTitle").value || "Landing Page");
+    const cta = escapeHtml($("#ctaUrl").value || "#");
+    const eventName = escapeHtml($("#eventName").value || "lp_cta_click");
+    const gtm = buildGtm($("#gtmId").value);
+    const images = currentItems().map((item, index) =>
+      `<a href="${cta}" class="lp-section" data-section="${index + 1}"><img src="${item.src}" alt="${escapeHtml(item.name)}" loading="${index ? "lazy" : "eager"}"></a>`
+    ).join("\n");
+    return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title}</title>
+${gtm.head}
+<style>
+*{box-sizing:border-box}html,body{margin:0;background:#fff}body{font-family:system-ui,sans-serif}
+.lp{width:min(100%,750px);margin:auto;overflow:hidden}.lp-section,.lp-section img{display:block;width:100%}
+</style>
+</head>
+<body>
+${gtm.body}
+<main class="lp">
+${images}
+</main>
+<script>
+document.querySelectorAll('.lp-section').forEach(function(link){
+  link.addEventListener('click',function(){
+    window.dataLayer=window.dataLayer||[];
+    window.dataLayer.push({event:'${eventName}',section:this.dataset.section,variant:'${state.active}'});
+  });
+});
+<\\/script>
+</body>
+</html>`;
+  }
+
+  function downloadHtml() {
+    const blob = new Blob([buildHtml()], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const slug = ($("#projectName").value || "landing-page").trim().replace(/\s+/g, "-").replace(/[^\w\u3040-\u30ff\u3400-\u9fff-]/g, "");
+    link.href = url;
+    link.download = `${slug}-${state.active.toLowerCase()}.html`;
+    link.click();
+    URL.revokeObjectURL(url);
+    notify(`Variant ${state.active} のHTMLを書き出しました`);
+  }
+
+  const dropzone = $("#dropzone");
+  $("#fileInput").addEventListener("change", event => addFiles(event.target.files));
+  ["dragenter", "dragover"].forEach(type => dropzone.addEventListener(type, event => {
+    event.preventDefault();
+    dropzone.classList.add("is-over");
+  }));
+  ["dragleave", "drop"].forEach(type => dropzone.addEventListener(type, event => {
+    event.preventDefault();
+    dropzone.classList.remove("is-over");
+  }));
+  dropzone.addEventListener("drop", event => addFiles(event.dataTransfer.files));
+
+  $$(".variant-tab").forEach(tab => tab.addEventListener("click", () => {
+    state.active = tab.dataset.variant;
+    $$(".variant-tab").forEach(item => item.classList.toggle("is-active", item.dataset.variant === state.active));
+    render();
+  }));
+  $("#cloneVariant").addEventListener("click", () => {
+    const target = state.active === "A" ? "B" : "A";
+    state.variants[target] = currentItems().map(item => ({ ...item, id: crypto.randomUUID() }));
+    notify(`Variant ${state.active} を ${target} に複製しました`);
+    persist();
+  });
+  $("#splitRange").addEventListener("input", event => {
+    $("#splitValue").textContent = `${event.target.value}%`;
+    $("#splitBar").style.width = `${event.target.value}%`;
+    persist();
+  });
+  async function requestRegeneration() {
+    const role = roles.find(item => item.id === $("#promptRole").value) || roles[0];
+    const count = Number($("#promptCount").value);
+    const buttons = [$("#regeneratePrompt"), $("#regenerateActiveRole")];
+    buttons.forEach(button => {
+      button.disabled = true;
+      button.textContent = "生成中...";
+    });
+    $("#generationStatus").textContent = `${role.label}を${count}案生成しています。数分かかる場合があります。`;
+    try {
+      const reference = $("#styleReference").value;
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: role.id,
+          roleLabel: role.label,
+          count,
+          projectId: state.projectId,
+          projectName: $("#projectName").value,
+          personaName: $("#personaName").value,
+          prompt: $("#prompt").value,
+          styleGuide: $("#styleGuide").value,
+          referenceImages: reference === "none" ? [] : [reference === "auto" ? roleReferences[role.id] : reference]
+        })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "画像生成に失敗しました");
+      state.projectId = result.projectId || state.projectId;
+      updateProjectFolderNotice();
+      result.images.forEach((image, index) => {
+        state.library.unshift({
+          assetId: crypto.randomUUID(),
+          role: role.id,
+          score: 99 - index,
+          name: `${role.label} / ${image.name}`,
+          src: image.src
+        });
+      });
+      state.activeRole = role.id;
+      render();
+      $("#generationStatus").textContent = `${result.images.length}案を候補一覧へ追加しました。`;
+      notify(`${role.label}を再生成しました`);
+    } catch (error) {
+      $("#generationStatus").textContent = error.message;
+      notify(error.message);
+    } finally {
+      $("#regeneratePrompt").disabled = false;
+      $("#regeneratePrompt").textContent = "再生成";
+      $("#regenerateActiveRole").disabled = false;
+      $("#regenerateActiveRole").textContent = "選択中のパートを再生成";
+    }
+  }
+  $("#regeneratePrompt").addEventListener("click", requestRegeneration);
+  $("#regenerateActiveRole").addEventListener("click", () => {
+    $("#promptRole").value = state.activeRole;
+    updatePrompt();
+    requestRegeneration();
+  });
+  async function syncGeneratedLibrary(showNotice = true) {
+    try {
+      const query = new URLSearchParams({
+        projectId: state.projectId,
+        projectName: $("#projectName").value
+      });
+      const response = await fetch(`/api/generated?${query}`, { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "生成フォルダを同期できませんでした");
+      state.projectId = result.projectId || state.projectId;
+      updateProjectFolderNotice();
+      let added = 0;
+      result.images.forEach(image => {
+        if (state.library.some(asset => asset.src === image.src)) return;
+        const role = roles.some(item => item.id === image.role) ? image.role : state.activeRole;
+        state.library.unshift({
+          assetId: crypto.randomUUID(),
+          role,
+          score: 90,
+          name: `${roles.find(item => item.id === role).label} / ${image.name}`,
+          src: image.src
+        });
+        added += 1;
+      });
+      if (added) render();
+      if (showNotice) notify(added ? `${added}枚の生成画像を追加しました` : "生成フォルダは同期済みです");
+      return added;
+    } catch (error) {
+      if (showNotice) notify(error.message);
+      return 0;
+    }
+  }
+  $("#syncGenerated").addEventListener("click", () => syncGeneratedLibrary(true));
+  async function saveProjectToDisk() {
+    persist();
+    try {
+      const response = await fetch("/api/project/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(projectData())
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "保存に失敗しました");
+      state.projectId = result.projectId || state.projectId;
+      updateProjectFolderNotice();
+      notify(`保存しました: ${result.relativePath}`);
+      await refreshProjectList();
+    } catch (error) {
+      notify(error.message);
+    }
+  }
+
+  async function exportHtmlToDisk() {
+    const data = projectData();
+    data.items = currentItems();
+    try {
+      const response = await fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "HTML出力に失敗しました");
+      state.projectId = result.projectId || state.projectId;
+      updateProjectFolderNotice();
+      notify(`HTMLを保存しました: ${result.relativePath}`);
+      window.open(result.url, "_blank", "noopener");
+    } catch (error) {
+      notify(error.message);
+    }
+  }
+
+  $("#exportHtml").addEventListener("click", exportHtmlToDisk);
+  $("#deployReady").addEventListener("click", downloadHtml);
+  $("#saveProject").addEventListener("click", saveProjectToDisk);
+  $("#loadProject").addEventListener("click", loadProjectFromDisk);
+  projectMenuTrigger.addEventListener("click", event => {
+    event.stopPropagation();
+    setProjectMenu(!projectMenu.classList.contains("is-open"));
+  });
+  projectMenu.addEventListener("click", event => event.stopPropagation());
+  document.addEventListener("click", () => setProjectMenu(false));
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape") setProjectMenu(false);
+  });
+  $("#newProject").addEventListener("click", () => {
+    state.projectId = "";
+    state.active = "A";
+    state.activeRole = "hero";
+    state.library = librarySeed.map(item => ({ ...item }));
+    const fresh = roles.map(role => {
+      const asset = state.library.filter(item => item.role === role.id).sort((a, b) => b.score - a.score)[0];
+      return { ...asset, id: crypto.randomUUID() };
+    });
+    state.variants = { A: fresh, B: fresh.map(item => ({ ...item, id: crypto.randomUUID() })) };
+    $("#projectName").value = "新規LP";
+    $("#personaName").value = "";
+    $("#savedProject").value = "";
+    updateProjectFolderNotice();
+    render();
+    setProjectMenu(false);
+    notify("新規プロジェクトを開始しました");
+  });
+  ["projectName", "personaName", "pageTitle", "gtmId", "eventName", "styleReference", "styleGuide"].forEach(id => $(`#${id}`).addEventListener("input", () => {
+    if (id === "personaName") updatePrompt();
+    updateProjectFolderNotice();
+    persist();
+  }));
+  $("#ctaUrl").addEventListener("input", render);
+  function updatePrompt() {
+    const role = roles.find(item => item.id === $("#promptRole").value) || roles[0];
+    const count = $("#promptCount").value;
+    const persona = $("#personaName").value.trim() || "未設定";
+    $("#prompt").value = `LPの「${role.label}」セクション画像を${count}案生成してください。想定ペルソナ：${persona}。目的：${role.purpose}。ペルソナの状況・悩み・関心に合う人物、場面、訴求を選ぶ。各案は同じブランドトーンを保ちつつ、コピー・構図・訴求角度を変える。出力仕様は${IMAGE_GENERATION.orientation}、アスペクト比${IMAGE_GENERATION.aspectRatio}、${IMAGE_GENERATION.width}×${IMAGE_GENERATION.height}pxに固定する。縦長や正方形にはしない。キャンバス全体を活かし、日本語は大きく読みやすく配置する。上下のセクション画像と自然に連結できる余白と背景にする。各案は個別画像として出力する。`;
+  }
+  function projectSlugPreview() {
+    return ($("#projectName").value || "untitled-project").trim()
+      .replace(/\s+/g, "-")
+      .replace(/[^\w\u3040-\u30ff\u3400-\u9fff-]/g, "") || "untitled-project";
+  }
+  function updateProjectFolderNotice() {
+    const id = state.projectId || projectSlugPreview();
+    $("#currentProjectName").textContent = $("#projectName").value || "名称未設定";
+    $("#projectFolderNotice").textContent = `保存先: projects/${id}/（project.json・images/generated・exports）`;
+  }
+  $("#promptRole").innerHTML = roles.map(role => `<option value="${role.id}">${role.label}</option>`).join("");
+  $("#promptRole").addEventListener("change", event => {
+    state.activeRole = event.target.value;
+    updatePrompt();
+    render();
+  });
+  $("#promptCount").addEventListener("change", updatePrompt);
+  $("#autoCompose").addEventListener("click", () => {
+    state.variants[state.active] = roles.map(role => {
+      const candidates = state.library.filter(asset => asset.role === role.id).sort((a, b) => b.score - a.score);
+      return { ...candidates[0], id: crypto.randomUUID() };
+    }).filter(Boolean);
+    render();
+    notify("AIおすすめ構成を作成しました");
+  });
+  $("#shuffleCompose").addEventListener("click", () => {
+    state.variants[state.active] = roles.map(role => {
+      const candidates = state.library.filter(asset => asset.role === role.id);
+      const asset = candidates[Math.floor(Math.random() * candidates.length)];
+      return asset ? { ...asset, id: crypto.randomUUID() } : null;
+    }).filter(Boolean);
+    render();
+    notify("別の組み合わせを作成しました");
+  });
+  $("#closeLightbox").addEventListener("click", () => {
+    $("#lightbox").classList.remove("is-open");
+    $("#lightbox").setAttribute("aria-hidden", "true");
+  });
+  $("#lightbox").addEventListener("click", event => {
+    if (event.target !== $("#lightbox")) return;
+    $("#closeLightbox").click();
+  });
+
+  restore();
+  $("#promptRole").value = state.activeRole;
+  updatePrompt();
+  $$(".variant-tab").forEach(item => item.classList.toggle("is-active", item.dataset.variant === state.active));
+  $("#splitValue").textContent = `${$("#splitRange").value}%`;
+  $("#splitBar").style.width = `${$("#splitRange").value}%`;
+  render();
+  updateProjectFolderNotice();
+  syncGeneratedLibrary(false);
+  refreshProjectList();
+  window.addEventListener("focus", () => syncGeneratedLibrary(false));
+})();
+</script>
+</body>
+</html>

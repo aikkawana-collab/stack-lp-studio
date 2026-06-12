@@ -1,0 +1,15 @@
+{
+  "name": "stack-lp-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Codexの利用枠で画像を生成し、画像主体のLPをローカル制作するアプリ",
+  "type": "module",
+  "scripts": {
+    "check": "node scripts/check-environment.mjs",
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}
